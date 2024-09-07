@@ -1,9 +1,6 @@
 package io.ashutosh;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.StaleElementReferenceException;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 
 import java.nio.file.attribute.FileTime;
 import java.time.ZoneId;
@@ -17,6 +14,11 @@ public class Utils {
         ZonedDateTime zdt1 = ZonedDateTime.ofInstant(first.toInstant(), ZoneId.of("Asia/Kolkata")).truncatedTo(ChronoUnit.SECONDS);
         ZonedDateTime zdt2 = ZonedDateTime.ofInstant(second.toInstant(), ZoneId.of("Asia/Kolkata")).truncatedTo(ChronoUnit.SECONDS);
         return zdt1.compareTo(zdt2) != 0;
+    }
+
+    public static void jsClick(WebDriver webDriver, WebElement element) {
+        JavascriptExecutor javascriptExecutor = (JavascriptExecutor) webDriver;
+        javascriptExecutor.executeScript("arguments[0].click();", element);
     }
 
     public static BiPredicate<WebDriver, By> elementPresent(boolean displayed) {

@@ -48,17 +48,14 @@ public class PCloudBackup {
             return this.webDriver.findElement(locator);
         } catch (TimeoutException ex) {
             System.out.println(ex.getMessage());
-            throw new TimeoutException("Timed out waiting for element with locator: " + locator);
+            throw new TimeoutException("Time out waiting for element with locator: " + locator);
         }
     }
 
 
     private void fileUpload(Duration timeout, List<String> filePathList) {
         StringBuilder sb = new StringBuilder();
-        for (String file : filePathList) {
-            sb.append(file).append("\n");
-        }
-
+        for (String file : filePathList) sb.append(file).append("\n");
         sb.delete(sb.length() - 1, sb.length());
 
         WebElement uploadFile = waitFor(timeout, By.xpath("//input[@type='file' and @multiple='']"), Utils.elementPresent(false));
@@ -66,29 +63,26 @@ public class PCloudBackup {
 
         // Replace all files in cloud regardless of timestamp of items(pop up appears instantly):
         try {
-            WebElement applyForAllCheckBox = waitFor(Duration.ofSeconds(5), By.xpath("//div[contains(@class,'InputStyled') and contains(text(),'Apply for all')]"), Utils.elementPresent(true));
-            applyForAllCheckBox.click();
+            WebElement applyForAllCheckBox = waitFor(timeout, By.xpath("//div[contains(@class,'InputStyled') and contains(text(),'Apply for all')]"), Utils.elementPresent(true));
+            Utils.jsClick(this.webDriver, applyForAllCheckBox);
 
-            WebElement continueBtn = waitFor(Duration.ofSeconds(6), By.xpath("//a[@color='cyan']/span[contains(text(),'Continue')]"), Utils.elementPresent(true));
-            continueBtn.click();
+            WebElement continueBtn = waitFor(timeout, By.xpath("//a[@color='cyan']/span[contains(text(),'Continue')]"), Utils.elementPresent(true));
+            Utils.jsClick(this.webDriver, continueBtn);
+
         } catch (Exception e) {
-            System.out.println("All files are unique");
+            System.out.println("All files are new");
         }
     }
 
     // uploads one folder at a time
-    private void folderUpload(Duration timeout, String folderPath, String folderName) {
+    private void folderUpload(Duration timeout, String folderPath) {
         WebElement uploadFile = waitFor(timeout, By.xpath("//input[@type='file' and @webkitdirectory='true']"), Utils.elementPresent(false));
         uploadFile.sendKeys(folderPath);
 
         // Replace folder in cloud regardless of last modified time of items:
         try {
-            waitFor(Duration.ofSeconds(10), By.xpath("//div[contains(@class,'UploadOptionsModal')]//span[text()='" + folderName + "']"), Utils.elementPresent(true));
-            WebElement applyForAllCheckBox = waitFor(Duration.ofSeconds(10), By.xpath("//div[contains(@class,'InputStyled') and contains(text(),'Apply for all')]"), Utils.elementPresent(true));
-            applyForAllCheckBox.click();
-
-            WebElement continueBtn = waitFor(Duration.ofSeconds(11), By.xpath("//a[@color='cyan']/span[contains(text(),'Continue')]"), Utils.elementPresent(true));
-            continueBtn.click();
+            WebElement continueBtn = waitFor(timeout, By.xpath("//a[@color='cyan']/span[contains(text(),'Continue')]"), Utils.elementPresent(true));
+            Utils.jsClick(this.webDriver, continueBtn);
         } catch (Exception e) {
             System.out.println("Folder is new");
         }
@@ -96,8 +90,7 @@ public class PCloudBackup {
 
     private void uploadChecker(Duration timeout, Long cntOfAssets) {
         WebElement allItemsBtn = waitFor(timeout, By.xpath("//*[@id='upload-manager-container']//label[contains(text(),'All items')]"), Utils.elementPresent(true));
-        JavascriptExecutor javascriptExecutor = (JavascriptExecutor) this.webDriver;
-        javascriptExecutor.executeScript("arguments[0].click();", allItemsBtn);
+        Utils.jsClick(this.webDriver, allItemsBtn);
 
         waitFor(timeout, By.xpath("//*[@id='upload-manager-container']//p[contains(text(),'Completed')]/following-sibling::p"), Utils.uploadComplete(cntOfAssets));
         System.out.println("Successfully uploaded files and folders!!!");
@@ -106,49 +99,38 @@ public class PCloudBackup {
     private void login() {
         this.webDriver.navigate().to("https://www.pcloud.com/");
 
-        // Close any advertisement pop-up
-        try {
-            WebElement closeModal = waitFor(Duration.ofSeconds(5), By.xpath("//div[contains(@class, 'ModalClose')]"), Utils.elementPresent(true));
-            closeModal.getAttribute("innerHTML");
-            closeModal.click();
-        } catch (Exception e) {
-            System.out.println("No advertisement to close");
-        }
-
         WebElement email = waitFor(Duration.ofSeconds(50), By.name("email"), Utils.elementPresent(true));
-
         email.sendKeys(this.username);
 
         WebElement nxtButton = waitFor(Duration.ofSeconds(50), By.cssSelector("button.butt.submitbut"), Utils.elementPresent(true));
-        nxtButton.click();
-
+        Utils.jsClick(this.webDriver, nxtButton);
 
         WebElement password = waitFor(Duration.ofSeconds(50), By.name("password"), Utils.elementPresent(true));
         password.sendKeys(this.password);
 
-
         nxtButton = waitFor(Duration.ofSeconds(50), By.cssSelector("button.butt.submitbut"), Utils.elementPresent(true));
-        nxtButton.click();
+        Utils.jsClick(this.webDriver, nxtButton);
     }
 
     public void backupAssets(String[] assets) {
         this.login();
 
         List<String> filePathList = new ArrayList<>();
+        List<String> folderPathList = new ArrayList<>();
         long cntofAssets = 0L;
 
         for (String asset : assets) {
             Path assetPath = this.srcBasePath.resolve(asset);
             if (Files.exists(assetPath)) {
                 cntofAssets++;
-                if (Files.isDirectory(assetPath))
-                    folderUpload(Duration.ofSeconds(50), assetPath.toString(), assetPath.getFileName().toString());
+                if (Files.isDirectory(assetPath)) folderPathList.add(assetPath.toString());
                 else filePathList.add(assetPath.toString());
             } else {
                 System.out.println("File/Folder does not exist: " + assetPath);
             }
         }
         fileUpload(Duration.ofSeconds(50), filePathList);
-        uploadChecker(Duration.ofDays(1L), cntofAssets);
+        folderPathList.forEach(folderPath -> folderUpload(Duration.ofSeconds(50), folderPath));
+        uploadChecker(Duration.ofMinutes(5), cntofAssets);
     }
 }
