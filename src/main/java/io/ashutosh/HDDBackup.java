@@ -6,6 +6,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,7 +34,7 @@ public class HDDBackup {
         }).collect(Collectors.toList());
     }
 
-    private void copyNewOrAlteredFiles(Path path) throws IOException {
+    private void copyNewOrAlteredFiles(Path path, List<String> copiedFiles) throws IOException {
         List<FileInfo> fileInfoList = getSrcPathFileList(path);
 
         for (FileInfo fileInfo : fileInfoList) {
@@ -46,16 +47,20 @@ public class HDDBackup {
 
                     if (fileTimeComparator(destFileAttr.lastModifiedTime(), fileInfo.basicFileAttr.lastModifiedTime()) || destFileAttr.size() != fileInfo.basicFileAttr.size()) {
                         Files.copy(srcFilePath, destFilePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                        copiedFiles.add(fileInfo.fileName);
                     }
                 }
             } else {
                 // If file or folder does not exist then copy that file or copy empty folder
                 Files.copy(srcFilePath, destFilePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+                if (fileInfo.basicFileAttr.isRegularFile()) copiedFiles.add(fileInfo.fileName);
             }
         }
     }
 
-    public void backupAssets(String[] assets) throws IOException {
-        for (String asset: assets) copyNewOrAlteredFiles(this.srcBasePath.resolve(asset));
+    public List<String> backupAssets(String[] assets) throws IOException {
+        List<String> copiedFiles = new ArrayList<>();
+        for (String asset : assets) copyNewOrAlteredFiles(this.srcBasePath.resolve(asset), copiedFiles);
+        return copiedFiles;
     }
 }
