@@ -3,14 +3,22 @@ package io.ashutosh;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.devtools.DevTools;
+import org.openqa.selenium.devtools.v128.page.Page;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.BiPredicate;
 
 public class PCloudBackup {
@@ -20,6 +28,7 @@ public class PCloudBackup {
     private final Path srcBasePath;
     private final String username;
     private final String password;
+    private Long seqNum = 0L;
 
 
     private PCloudBackup(String srcBasePath, String username, String password) {
@@ -112,7 +121,33 @@ public class PCloudBackup {
         Utils.jsClick(this.webDriver, nxtButton);
     }
 
-    public void backupAssets(String[] assets) {
+    public void screenRecording(DevTools devTools) {
+        devTools.send(Page.startScreencast(
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty()));
+
+        devTools.addListener(Page.screencastFrame(), screencastFrame -> {
+            devTools.send(Page.screencastFrameAck(screencastFrame.getSessionId()));
+            byte[] frameImage = Base64.getDecoder().decode(screencastFrame.getData());
+            try {
+                OutputStream out = new BufferedOutputStream(new FileOutputStream("frame-" + this.seqNum + ".png"));
+                out.write(frameImage);
+                out.close();
+                this.seqNum++;
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    public void backupAssets(String[] assets) throws InterruptedException {
+        DevTools devTools = ((ChromeDriver) this.webDriver).getDevTools();
+        devTools.createSession();
+
+        this.screenRecording(devTools);
         this.login();
 
         List<String> filePathList = new ArrayList<>();
@@ -132,5 +167,13 @@ public class PCloudBackup {
         fileUpload(Duration.ofSeconds(50), filePathList);
         folderPathList.forEach(folderPath -> folderUpload(Duration.ofSeconds(50), folderPath));
         uploadChecker(Duration.ofMinutes(5), cntofAssets);
+
+        // To get images of the last frame better
+        Thread.sleep(1000);
+        devTools.send(Page.stopScreencast());
+        devTools.clearListeners();
+        devTools.disconnectSession();
+        devTools.close();
+
     }
 }
