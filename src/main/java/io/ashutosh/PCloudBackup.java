@@ -35,6 +35,7 @@ public class PCloudBackup {
     private PCloudBackup(String srcBasePath, String username, String password) {
         ChromeOptions chromeOptions = new ChromeOptions();
         chromeOptions.setPageLoadStrategy(PageLoadStrategy.EAGER);
+        chromeOptions.addArguments("--headless=new");
         chromeOptions.addArguments("--disable-notifications");
         chromeOptions.addArguments("--disable-infobars");
 
@@ -146,43 +147,45 @@ public class PCloudBackup {
     }
 
     public void backupAssets(String[] assets, String videoFileName) throws InterruptedException, IOException {
-        DevTools devTools = ((ChromeDriver) this.webDriver).getDevTools();
-        devTools.createSession();
+        try {
+            DevTools devTools = ((ChromeDriver) this.webDriver).getDevTools();
+            devTools.createSession();
 
-        this.screenRecording(devTools);
-        this.login();
+            this.screenRecording(devTools);
+            this.login();
 
-        List<String> filePathList = new ArrayList<>();
-        List<String> folderPathList = new ArrayList<>();
-        long cntofAssets = 0L;
+            List<String> filePathList = new ArrayList<>();
+            List<String> folderPathList = new ArrayList<>();
+            long cntofAssets = 0L;
 
-        for (String asset : assets) {
-            Path assetPath = this.srcBasePath.resolve(asset);
-            if (Files.exists(assetPath)) {
-                cntofAssets++;
-                if (Files.isDirectory(assetPath)) folderPathList.add(assetPath.toString());
-                else filePathList.add(assetPath.toString());
-            } else {
-                System.out.println("File/Folder does not exist: " + assetPath);
+            for (String asset : assets) {
+                Path assetPath = this.srcBasePath.resolve(asset);
+                if (Files.exists(assetPath)) {
+                    cntofAssets++;
+                    if (Files.isDirectory(assetPath)) folderPathList.add(assetPath.toString());
+                    else filePathList.add(assetPath.toString());
+                } else {
+                    System.out.println("File/Folder does not exist: " + assetPath);
+                }
             }
+            fileUpload(Duration.ofSeconds(50), filePathList);
+            folderPathList.forEach(folderPath -> folderUpload(Duration.ofSeconds(50), folderPath));
+            uploadChecker(Duration.ofMinutes(5), cntofAssets);
+
+            // To get images of the last frame better
+            Thread.sleep(1000);
+            devTools.send(Page.stopScreencast());
+            devTools.clearListeners();
+            devTools.disconnectSession();
+            devTools.close();
+
+            if (Utils.generateVideoFromFrames(frameNamePrefix, videoFileName))
+                System.out.println("Successfully generated video from frames");
+            else
+                System.out.println("Something went wrong! Unable to generate video from frames");
+        } finally {
+            this.webDriver.close();
+            Utils.deleteFrames(seqNum);
         }
-        fileUpload(Duration.ofSeconds(50), filePathList);
-        folderPathList.forEach(folderPath -> folderUpload(Duration.ofSeconds(50), folderPath));
-        uploadChecker(Duration.ofMinutes(5), cntofAssets);
-
-        // To get images of the last frame better
-        Thread.sleep(1000);
-        devTools.send(Page.stopScreencast());
-        devTools.clearListeners();
-        devTools.disconnectSession();
-        devTools.close();
-
-        if(Utils.generateVideoFromFrames(frameNamePrefix, videoFileName))
-            System.out.println("Successfully generated video from frames");
-        else
-            System.out.println("Something went wrong! Unable to generate video from frames");
-
-        Utils.deleteFrames(seqNum);
-
     }
 }

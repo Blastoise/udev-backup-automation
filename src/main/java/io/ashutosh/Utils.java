@@ -54,14 +54,15 @@ public class Utils {
                 "-y",
                 "-loglevel", "quiet",
                 "-framerate", "15",
-                "-i", frameNameSuffix+"%d.png",
+                "-i", frameNameSuffix + "%d.png",
                 "-c:v", "libx264",
+                "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2",
                 "-pix_fmt", "yuv420p",
                 videoFileName);
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
-        return process.waitFor()==0;
+        return process.waitFor() == 0;
     }
 
     public static void deleteFrames(Long maxFrameCount) {
