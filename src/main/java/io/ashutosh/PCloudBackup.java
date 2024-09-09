@@ -28,6 +28,7 @@ public class PCloudBackup {
     private final Path srcBasePath;
     private final String username;
     private final String password;
+    private final String frameNamePrefix = "frame-";
     private Long seqNum = 0L;
 
 
@@ -121,7 +122,7 @@ public class PCloudBackup {
         Utils.jsClick(this.webDriver, nxtButton);
     }
 
-    public void screenRecording(DevTools devTools) {
+    private void screenRecording(DevTools devTools) {
         devTools.send(Page.startScreencast(
                 Optional.empty(),
                 Optional.empty(),
@@ -133,7 +134,8 @@ public class PCloudBackup {
             devTools.send(Page.screencastFrameAck(screencastFrame.getSessionId()));
             byte[] frameImage = Base64.getDecoder().decode(screencastFrame.getData());
             try {
-                OutputStream out = new BufferedOutputStream(new FileOutputStream("frame-" + this.seqNum + ".png"));
+                OutputStream out = new BufferedOutputStream(new FileOutputStream(
+                        frameNamePrefix + this.seqNum + ".png"));
                 out.write(frameImage);
                 out.close();
                 this.seqNum++;
@@ -143,7 +145,7 @@ public class PCloudBackup {
         });
     }
 
-    public void backupAssets(String[] assets) throws InterruptedException {
+    public void backupAssets(String[] assets, String videoFileName) throws InterruptedException, IOException {
         DevTools devTools = ((ChromeDriver) this.webDriver).getDevTools();
         devTools.createSession();
 
@@ -174,6 +176,13 @@ public class PCloudBackup {
         devTools.clearListeners();
         devTools.disconnectSession();
         devTools.close();
+
+        if(Utils.generateVideoFromFrames(frameNamePrefix, videoFileName))
+            System.out.println("Successfully generated video from frames");
+        else
+            System.out.println("Something went wrong! Unable to generate video from frames");
+
+        Utils.deleteFrames(seqNum);
 
     }
 }
