@@ -1,0 +1,13 @@
+[Unit]
+Description=Udev Backup Automation for %I
+
+[Service]
+Type=simple
+Environment="MOUNT_POINT=/media/mydrive"
+Environment="USERNAME=<USERNAME>"
+ExecStartPre=+/usr/local/bin/mount_disk.sh %I
+User=<USERNAME>
+Group=<GROUP>
+ExecStart=/usr/local/bin/udev-backup-automation.sh
+StandardOutput=append:/home/<USERNAME>/Apps/Udev-Backup-Automation/automation.log
+StandardError=append:/home/<USERNAME>/Apps/Udev-Backup-Automation/automation.log
